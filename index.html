@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Погода</title>
+    <style>
+        :root {
+            --bg: #121212;
+            --card: #1e1e1e;
+            --accent: #ff6b00;
+            --text: #ffffff;
+            --muted: #a0a0a0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .weather-card {
+            background: var(--card);
+            padding: 30px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+        h1 { font-size: 1.5rem; margin-bottom: 20px; color: var(--accent); }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid #444;
+            background: #2a2a2a;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+        input:focus { border-color: var(--accent); }
+        button {
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: none;
+            background: var(--accent);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:active { transform: scale(0.95); }
+        
+        .weather-info { display: none; }
+        .weather-info.active { display: block; animation: fadeIn 0.5s; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .weather-icon-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100px;
+            margin-bottom: 10px;
+        }
+        .weather-icon-container svg {
+            width: 100px;
+            height: 100px;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
+        }
+
+        .city-name { font-size: 1.8rem; font-weight: bold; margin-bottom: 10px; }
+        .temp { font-size: 4rem; font-weight: bold; color: var(--accent); }
+        .description { font-size: 1.2rem; text-transform: capitalize; margin-bottom: 20px; color: var(--muted); }
+        
+        .details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #333;
+        }
+        .detail-item { background: #2a2a2a; padding: 10px; border-radius: 10px; }
+        .detail-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
+        .detail-value { font-size: 1.1rem; font-weight: bold; }
+        
+        .error { color: #ff4444; margin-top: 10px; display: none; }
+    </style>
+</head><body>
+
+    <div class="weather-card">
+        <h1>🌤 Погода</h1>
+        
+        <div class="search-box">
+            <input type="text" id="city-input" placeholder="Введите город (например, Москва)">
+            <button id="search-btn">🔍</button>
+        </div>
+
+        <div id="error-msg" class="error"></div>
+
+        <div id="weather-result" class="weather-info">
+            <div class="weather-icon-container" id="weather-icon">-</div>
+            <div class="city-name" id="city-name">-</div>
+            <div class="temp" id="temp">-</div>
+            <div class="description" id="description">-</div>
+            
+            <div class="details">
+                <div class="detail-item">
+                    <div class="detail-label">Ощущается</div>
+                    <div class="detail-value" id="feels-like">-</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Влажность</div>
+                    <div class="detail-value" id="humidity">-</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Ветер</div>
+                    <div class="detail-value" id="wind">-</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Давление</div>
+                    <div class="detail-value" id="pressure">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>        const API_KEY = '5ff813c6172050cc40566775decb35cf';
+        
+        const cityInput = document.getElementById('city-input');
+        const searchBtn = document.getElementById('search-btn');
+        const weatherResult = document.getElementById('weather-result');
+        const errorMsg = document.getElementById('error-msg');
+
+        async function getWeather(city) {
+            const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric&lang=ru`;
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Город не найден');
+                const data = await response.json();
+                showWeather(data);
+            } catch (error) {
+                weatherResult.classList.remove('active');
+                errorMsg.style.display = 'block';
+                errorMsg.textContent = 'Ошибка: ' + error.message;
+            }
+        }
+
+        function showWeather(data) {
+            errorMsg.style.display = 'none';
+            document.getElementById('city-name').textContent = data.name;
+            
+            const iconContainer = document.getElementById('weather-icon');
+            const weatherId = data.weather[0].id;
+            
+            function getWeatherSVG(type) {
+                if (type === 'sun') {
+                    return `<svg viewBox="0 0 100 100" width="100" height="100"><circle cx="50" cy="50" r="20" fill="#FFD700" /><g stroke="#FFD700" stroke-width="4" stroke-linecap="round"><line x1="50" y1="15" x2="50" y2="5"/><line x1="50" y1="85" x2="50" y2="95"/><line x1="15" y1="50" x2="5" y2="50"/><line x1="85" y1="50" x2="95" y2="50"/><line x1="25" y1="25" x2="18" y2="18"/><line x1="75" y1="75" x2="82" y2="82"/><line x1="75" y1="25" x2="82" y2="18"/><line x1="25" y1="75" x2="18" y2="82"/></g></svg>`;
+                }
+                if (type === 'cloud-sun') {
+                    return `<svg viewBox="0 0 100 100" width="100" height="100"><circle cx="35" cy="40" r="15" fill="#FFD700" /><path d="M 30 65 Q 30 50 45 50 Q 55 40 70 50 Q 85 50 85 65 Q 85 80 70 80 L 30 80 Q 15 80 15 65 Q 15 50 30 50" fill="#f0f0f0" stroke="#ddd" stroke-width="2"/></svg>`;
+                }
+                if (type === 'cloud-rain') {
+                    return `<svg viewBox="0 0 100 100" width="100" height="100"><path d="M 30 60 Q 30 45 45 45 Q 55 35 70 45 Q 85 45 85 60 Q 85 75 70 75 L 30 75 Q 15 75 15 60 Q 15 45 30 45" fill="#a0a0a0" stroke="#888" stroke-width="2"/><line x1="30" y1="80" x2="25" y2="95" stroke="#4a90e2" stroke-width="3" stroke-linecap="round"/><line x1="50" y1="80" x2="45" y2="95" stroke="#4a90e2" stroke-width="3" stroke-linecap="round"/><line x1="70" y1="80" x2="65" y2="95" stroke="#4a90e2" stroke-width="3" stroke-linecap="round"/></svg>`;
+                }
+                if (type === 'cloud-storm') {
+                    return `<svg viewBox="0 0 100 100" width="100" height="100"><path d="M 30 60 Q 30 45 45 45 Q 55 35 70 45 Q 85 45 85 60 Q 85 75 70 75 L 30 75 Q 15 75 15 60 Q 15 45 30 45" fill="#555" stroke="#333" stroke-width="2"/><polygon points="50,70 40,90 55,90 45,100 60,80 45,80" fill="#FFD700"/></svg>`;
+                }
+                return '';
+            }
+
+            let iconType = 'sun';
+            if (weatherId >= 200 && weatherId < 300) {
+                iconType = 'cloud-storm';
+            } else if ((weatherId >= 300 && weatherId < 600)) {
+                iconType = 'cloud-rain';
+            } else if (weatherId >= 801 && weatherId < 900) {
+                iconType = 'cloud-sun';
+            }
+            iconContainer.innerHTML = getWeatherSVG(iconType);
+
+            document.getElementById('temp').textContent = Math.round(data.main.temp) + '°C';
+            document.getElementById('description').textContent = data.weather[0].description;
+            document.getElementById('feels-like').textContent = Math.round(data.main.feels_like) + '°C';
+            document.getElementById('humidity').textContent = data.main.humidity + '%';
+            document.getElementById('wind').textContent = data.wind.speed + ' м/с';
+            document.getElementById('pressure').textContent = data.main.pressure + ' гПа';
+            
+            weatherResult.classList.add('active');
+        }
+
+        searchBtn.addEventListener('click', () => {
+            const city = cityInput.value.trim();
+            if (city) getWeather(city);
+        });
+
+        cityInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const city = cityInput.value.trim();
+                if (city) getWeather(city);
+            }
+        });
+    </script>
+</body>
+</html>
